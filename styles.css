@@ -358,6 +358,10 @@ button {
   outline: none;
 }
 
+.route-layout-resizer {
+  min-height: 100%;
+}
+
 .address-search {
   display: grid;
   gap: 7px;
@@ -488,10 +492,15 @@ button {
 
 .route-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 35%) 1fr;
-  gap: 18px;
+  grid-template-columns: minmax(340px, var(--route-list-width, 460px)) 10px minmax(460px, 1fr);
+  gap: 12px;
   height: calc(100% - 82px);
   min-height: 560px;
+}
+
+.route-layout.resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .route-list-panel {
@@ -545,7 +554,10 @@ button {
 
 .route-item {
   display: grid;
-  grid-template-columns: 36px 24px minmax(0, 1fr) auto auto;
+  grid-template-columns: 36px 24px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "index include copy metric"
+    "actions actions actions actions";
   gap: 10px;
   align-items: center;
   border: 1px solid #dfe6ef;
@@ -556,6 +568,15 @@ button {
 
 .route-item[draggable="true"] {
   cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
+.route-item[draggable="true"] * {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .route-item.dragging {
@@ -564,10 +585,12 @@ button {
 
 .section-dnd-touching {
   user-select: none;
+  -webkit-user-select: none;
 }
 
 .section-dnd-touching .route-item.dragging {
   pointer-events: none;
+  touch-action: none;
 }
 
 .route-list.drag-over {
@@ -581,6 +604,7 @@ button {
 }
 
 .route-index {
+  grid-area: index;
   display: grid;
   width: 34px;
   height: 34px;
@@ -594,6 +618,7 @@ button {
 
 .route-include,
 .include-spacer {
+  grid-area: include;
   display: grid;
   width: 24px;
   height: 34px;
@@ -611,6 +636,11 @@ button {
   display: block;
 }
 
+.route-copy {
+  grid-area: copy;
+  min-width: 0;
+}
+
 .route-copy span {
   margin-top: 3px;
   color: var(--muted);
@@ -618,6 +648,7 @@ button {
 }
 
 .leg-metric {
+  grid-area: metric;
   min-width: 82px;
   text-align: right;
 }
@@ -647,11 +678,13 @@ button {
 }
 
 .route-row-actions {
+  grid-area: actions;
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
-  min-width: 104px;
+  min-width: 0;
+  padding-left: 70px;
 }
 
 .mini-button {
@@ -670,8 +703,15 @@ button {
 }
 
 .route-home {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-areas: "index copy metric";
   border-color: #f1c783;
   background: #fff8ec;
+}
+
+.route-home .include-spacer,
+.route-home .route-row-actions {
+  display: none;
 }
 
 .route-home .route-index {
@@ -939,9 +979,17 @@ button {
 
   .route-item {
     grid-template-columns: 34px 22px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "index include copy metric"
+      "index include copy metric"
+      "actions actions actions actions";
     gap: 8px;
     padding: 10px;
     align-items: start;
+  }
+
+  .route-index {
+    grid-area: index;
   }
 
   .route-index {
@@ -951,8 +999,18 @@ button {
 
   .route-include,
   .include-spacer {
+    grid-area: include;
+  }
+
+  .route-include,
+  .include-spacer {
     width: 22px;
     height: 34px;
+  }
+
+  .route-copy {
+    grid-area: copy;
+    overflow-wrap: anywhere;
   }
 
   .route-copy strong {
@@ -966,8 +1024,7 @@ button {
   }
 
   .leg-metric {
-    grid-column: 4;
-    grid-row: 1 / span 2;
+    grid-area: metric;
     min-width: 68px;
     text-align: right;
   }
@@ -983,6 +1040,7 @@ button {
 
   .route-home {
     grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-areas: "index copy metric";
   }
 
   .route-home .include-spacer,
@@ -991,18 +1049,18 @@ button {
   }
 
   .route-home .route-copy {
-    grid-column: 2;
+    grid-area: copy;
   }
 
   .route-home .leg-metric {
-    grid-column: 3;
-    grid-row: 1;
+    grid-area: metric;
   }
 
   .route-row-actions {
-    grid-column: 3 / span 2;
+    grid-area: actions;
     justify-content: flex-start;
     min-width: 0;
+    padding-left: 64px;
   }
 
   .route-row-actions .mini-button {

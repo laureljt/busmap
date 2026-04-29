@@ -99,6 +99,9 @@ const elements = {
   sidebarToggle: document.querySelector("#sidebarToggle"),
   addressLayout: document.querySelector(".address-layout"),
   addressLayoutResizer: document.querySelector("#addressLayoutResizer"),
+  routeLayout: document.querySelector(".route-layout"),
+  routeListPanel: document.querySelector(".route-list-panel"),
+  routeLayoutResizer: document.querySelector("#routeLayoutResizer"),
   addressSearch: document.querySelector("#addressSearchInput"),
   addressList: document.querySelector("#addressList"),
   routeList: document.querySelector("#routeList"),
@@ -1451,6 +1454,46 @@ function adjustAddressResizeWithKeyboard(event) {
   elements.addressLayout.style.setProperty("--address-form-width", `${nextWidth}px`);
 }
 
+function setRouteListWidth(nextWidth) {
+  elements.routeLayout.style.setProperty("--route-list-width", `${nextWidth}px`);
+  if (mapboxMap) mapboxMap.resize();
+}
+
+function startRouteResize(event) {
+  if (window.matchMedia("(max-width: 980px)").matches) return;
+  event.preventDefault();
+  const startX = event.clientX;
+  const startWidth = elements.routeListPanel.getBoundingClientRect().width;
+  elements.routeLayout.classList.add("resizing");
+
+  function handleMove(moveEvent) {
+    const layoutWidth = elements.routeLayout.getBoundingClientRect().width;
+    const nextWidth = Math.min(Math.max(startWidth + moveEvent.clientX - startX, 320), layoutWidth - 500);
+    setRouteListWidth(nextWidth);
+  }
+
+  function handleUp() {
+    elements.routeLayout.classList.remove("resizing");
+    if (mapboxMap) mapboxMap.resize();
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleUp);
+  }
+
+  window.addEventListener("pointermove", handleMove);
+  window.addEventListener("pointerup", handleUp);
+}
+
+function adjustRouteResizeWithKeyboard(event) {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  if (window.matchMedia("(max-width: 980px)").matches) return;
+  event.preventDefault();
+  const currentWidth = elements.routeListPanel.getBoundingClientRect().width;
+  const delta = event.key === "ArrowLeft" ? -24 : 24;
+  const layoutWidth = elements.routeLayout.getBoundingClientRect().width;
+  const nextWidth = Math.min(Math.max(currentWidth + delta, 320), layoutWidth - 500);
+  setRouteListWidth(nextWidth);
+}
+
 elements.navTabs.forEach((tab) => {
   tab.addEventListener("click", () => setScreen(tab.dataset.screen));
 });
@@ -1458,6 +1501,8 @@ elements.navTabs.forEach((tab) => {
 elements.sidebarToggle.addEventListener("click", toggleSidebar);
 elements.addressLayoutResizer.addEventListener("pointerdown", startAddressResize);
 elements.addressLayoutResizer.addEventListener("keydown", adjustAddressResizeWithKeyboard);
+elements.routeLayoutResizer.addEventListener("pointerdown", startRouteResize);
+elements.routeLayoutResizer.addEventListener("keydown", adjustRouteResizeWithKeyboard);
 elements.form.addEventListener("submit", handleSubmit);
 elements.cancelEdit.addEventListener("click", resetForm);
 elements.addAddress.addEventListener("click", () => {
