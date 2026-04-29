@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Route Planner</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.19.1/mapbox-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.19.1/mapbox-gl.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">RP</span>
+          <div>
+            <h1>Route Planner</h1>
+            <p>Addresses, home base, and route sequence</p>
+          </div>
+        </div>
+
+        <nav class="nav-tabs" aria-label="Screens">
+          <button class="nav-tab active" type="button" data-screen="addresses">
+            <span aria-hidden="true">H</span>
+            Addresses
+          </button>
+          <button class="nav-tab" type="button" data-screen="route">
+            <span aria-hidden="true">R</span>
+            Route
+          </button>
+          <button class="nav-tab" type="button" data-screen="summary">
+            <span aria-hidden="true">S</span>
+            Summary
+          </button>
+        </nav>
+
+        <div class="sidebar-metrics">
+          <div>
+            <strong id="metricStops">0</strong>
+            <span>Stops</span>
+          </div>
+          <div>
+            <strong id="metricTime">0m</strong>
+            <span>Route time</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="screen active" id="addressesScreen" aria-labelledby="addressesTitle">
+          <div class="screen-header">
+            <div>
+              <p class="eyebrow">Manage locations</p>
+              <h2 id="addressesTitle">Addresses and Home Base</h2>
+            </div>
+            <button class="primary-action" type="button" id="addAddressButton">+ Add address</button>
+          </div>
+
+          <div class="address-layout">
+            <form class="panel form-panel" id="locationForm">
+              <input type="hidden" id="editingId" />
+              <div class="form-heading">
+                <h3 id="formTitle">Add an address</h3>
+                <button class="ghost-button hidden" type="button" id="cancelEditButton">Cancel</button>
+              </div>
+
+              <label>
+                Label
+                <input id="labelInput" type="text" placeholder="Client, friend, or stop name" required />
+              </label>
+
+              <label>
+                Street address
+                <input id="addressInput" type="text" placeholder="123 Market Street" required />
+              </label>
+
+              <div class="field-grid">
+                <label>
+                  City (optional)
+                  <input id="cityInput" type="text" placeholder="Austin" />
+                </label>
+                <label>
+                  State (optional)
+                  <input id="stateInput" type="text" maxlength="2" placeholder="TX" />
+                </label>
+              </div>
+
+              <div class="field-grid">
+                <label>
+                  Latitude (optional)
+                  <input id="latInput" type="number" min="-90" max="90" step="0.000001" placeholder="39.961176" />
+                </label>
+                <label>
+                  Longitude (optional)
+                  <input id="lngInput" type="number" min="-180" max="180" step="0.000001" placeholder="-82.998794" />
+                </label>
+              </div>
+
+              <label class="checkbox-row">
+                <input id="homeInput" type="checkbox" />
+                Set as home base
+              </label>
+
+              <button class="submit-button" type="submit" id="saveButton">Save address</button>
+            </form>
+
+            <section class="address-side">
+              <div class="panel list-panel" aria-label="Saved addresses">
+                <div class="panel-heading">
+                  <h3>Saved Locations</h3>
+                  <span id="homeBaseLabel">No home base</span>
+                </div>
+                <div class="address-list" id="addressList"></div>
+              </div>
+
+              <section class="panel bulk-panel" aria-labelledby="bulkTitle">
+                <div class="panel-heading">
+                  <h3 id="bulkTitle">Bulk Add</h3>
+                  <span id="bulkStatus">Paste one address per line</span>
+                </div>
+                <label>
+                  Mapbox token
+                  <input id="mapboxTokenInput" type="password" placeholder="pk..." autocomplete="off" />
+                </label>
+                <div class="bulk-actions">
+                  <button class="secondary-action" type="button" id="saveTokenButton">Save token</button>
+                  <button class="secondary-action" type="button" id="geocodeButton">Geocode missing</button>
+                </div>
+                <label>
+                  Addresses
+                  <textarea
+                    id="bulkInput"
+                    rows="7"
+                    placeholder="Home: 100 S High Street, Columbus, OH&#10;1205 N High Street, Columbus, OH&#10;588 S 3rd Street, Columbus, OH"
+                  ></textarea>
+                </label>
+                <div class="bulk-actions">
+                  <button class="submit-button" type="button" id="bulkImportButton">Import addresses</button>
+                  <button class="ghost-button" type="button" id="bulkSampleButton">Use sample format</button>
+                </div>
+              </section>
+            </section>
+          </div>
+        </section>
+
+        <section class="screen route-screen" id="routeScreen" aria-labelledby="routeTitle">
+          <div class="route-toolbar">
+            <div>
+              <p class="eyebrow">Optimize and adjust</p>
+              <h2 id="routeTitle">Proposed Route</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button class="secondary-action" type="button" id="optimizeButton">Optimize route</button>
+              <button class="secondary-action" type="button" id="reverseButton">Reverse stops</button>
+            </div>
+          </div>
+
+          <div class="route-layout">
+            <section class="route-list-panel" aria-label="Route order">
+              <label class="start-time-control">
+                Start time
+                <input id="startTimeInput" type="time" />
+              </label>
+              <div class="route-stats">
+                <div>
+                  <strong id="routeDistance">0 mi</strong>
+                  <span>Distance</span>
+                </div>
+                <div>
+                  <strong id="routeTime">0m</strong>
+                  <span>Travel time</span>
+                </div>
+              </div>
+              <div class="route-list" id="routeList"></div>
+            </section>
+
+            <section class="map-panel" aria-label="Map preview">
+              <div id="mapboxMap"></div>
+              <svg id="routeMap" viewBox="0 0 100 100" role="img" aria-labelledby="mapTitle mapDesc">
+                <title id="mapTitle">Route map</title>
+                <desc id="mapDesc">Map showing home base, addresses, and connecting route line.</desc>
+              </svg>
+              <div class="map-message" id="mapMessage"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="screen" id="summaryScreen" aria-labelledby="summaryTitle">
+          <div class="screen-header">
+            <div>
+              <p class="eyebrow">At a glance</p>
+              <h2 id="summaryTitle">Route Summary</h2>
+            </div>
+          </div>
+          <div class="summary-grid">
+            <article class="summary-block">
+              <span>Home base</span>
+              <strong id="summaryHome">Not set</strong>
+            </article>
+            <article class="summary-block">
+              <span>Stops</span>
+              <strong id="summaryStops">0</strong>
+            </article>
+            <article class="summary-block">
+              <span>Total distance</span>
+              <strong id="summaryDistance">0 mi</strong>
+            </article>
+            <article class="summary-block">
+              <span>Estimated travel time</span>
+              <strong id="summaryTime">0m</strong>
+            </article>
+          </div>
+          <section class="panel">
+            <div class="panel-heading">
+              <h3>Turn Order</h3>
+              <span>Starts and ends at home</span>
+            </div>
+            <ol class="summary-route" id="summaryRoute"></ol>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state">
+        <strong>No addresses yet</strong>
+        <span>Add locations and set one as your home base to build a route.</span>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
