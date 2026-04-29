@@ -11,37 +11,48 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="brand">
-          <span class="brand-mark">RP</span>
-          <div>
-            <h1>Route Planner</h1>
-            <p>Addresses, home base, and route sequence</p>
+        <div class="sidebar-top">
+          <div class="brand">
+            <span class="brand-mark">RP</span>
+            <div>
+              <h1>Route Planner</h1>
+              <p>Addresses, home base, and route sequence</p>
+            </div>
           </div>
+          <button class="sidebar-toggle" type="button" id="sidebarToggle" aria-expanded="true" aria-controls="sidebarContent">
+            Collapse Menu
+          </button>
         </div>
 
-        <nav class="nav-tabs" aria-label="Screens">
-          <button class="nav-tab active" type="button" data-screen="addresses">
-            <span aria-hidden="true">H</span>
-            Addresses
-          </button>
-          <button class="nav-tab" type="button" data-screen="route">
-            <span aria-hidden="true">R</span>
-            Route
-          </button>
-          <button class="nav-tab" type="button" data-screen="summary">
-            <span aria-hidden="true">S</span>
-            Summary
-          </button>
-        </nav>
+        <div class="sidebar-content" id="sidebarContent">
+          <nav class="nav-tabs" aria-label="Screens">
+            <button class="nav-tab active" type="button" data-screen="addresses">
+              <span aria-hidden="true">H</span>
+              Manage Houses
+            </button>
+            <button class="nav-tab" type="button" data-screen="route">
+              <span aria-hidden="true">R</span>
+              Plan Route
+            </button>
+            <button class="nav-tab" type="button" data-screen="summary">
+              <span aria-hidden="true">S</span>
+              Summary
+            </button>
+            <button class="nav-tab" type="button" data-screen="admin">
+              <span aria-hidden="true">A</span>
+              Admin
+            </button>
+          </nav>
 
-        <div class="sidebar-metrics">
-          <div>
-            <strong id="metricStops">0</strong>
-            <span>Stops</span>
-          </div>
-          <div>
-            <strong id="metricTime">0m</strong>
-            <span>Route time</span>
+          <div class="sidebar-metrics">
+            <div>
+              <strong id="metricStops">0</strong>
+              <span>Stops</span>
+            </div>
+            <div>
+              <strong id="metricTime">0m</strong>
+              <span>Route time</span>
+            </div>
           </div>
         </div>
       </aside>
@@ -104,12 +115,18 @@
               <button class="submit-button" type="submit" id="saveButton">Save address</button>
             </form>
 
+            <div class="layout-resizer" id="addressLayoutResizer" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
             <section class="address-side">
               <div class="panel list-panel" aria-label="Saved addresses">
                 <div class="panel-heading">
                   <h3>Saved Locations</h3>
                   <span id="homeBaseLabel">No home base</span>
                 </div>
+                <label class="address-search">
+                  Search houses
+                  <input id="addressSearchInput" type="search" placeholder="Search by name or address" />
+                </label>
                 <div class="address-list" id="addressList"></div>
               </div>
 
@@ -117,14 +134,6 @@
                 <div class="panel-heading">
                   <h3 id="bulkTitle">Bulk Add</h3>
                   <span id="bulkStatus">Paste one address per line</span>
-                </div>
-                <label>
-                  Mapbox token
-                  <input id="mapboxTokenInput" type="password" placeholder="pk..." autocomplete="off" />
-                </label>
-                <div class="bulk-actions">
-                  <button class="secondary-action" type="button" id="saveTokenButton">Save token</button>
-                  <button class="secondary-action" type="button" id="geocodeButton">Geocode missing</button>
                 </div>
                 <label>
                   Addresses
@@ -216,6 +225,28 @@
               <span>Starts and ends at home</span>
             </div>
             <ol class="summary-route" id="summaryRoute"></ol>
+          </section>
+        </section>
+
+        <section class="screen" id="adminScreen" aria-labelledby="adminTitle">
+          <div class="screen-header">
+            <div>
+              <p class="eyebrow">Configuration</p>
+              <h2 id="adminTitle">Admin</h2>
+            </div>
+          </div>
+          <section class="panel admin-panel">
+            <div class="panel-heading">
+              <h3>Mapbox</h3>
+              <span id="adminStatus">Token settings</span>
+            </div>
+            <label>
+              Mapbox token
+              <input id="mapboxTokenInput" type="password" placeholder="pk..." autocomplete="off" />
+            </label>
+            <div class="bulk-actions">
+              <button class="submit-button" type="button" id="saveTokenButton">Save token</button>
+            </div>
           </section>
         </section>
       </main>

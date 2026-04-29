@@ -78,6 +78,7 @@ const screens = {
   addresses: document.querySelector("#addressesScreen"),
   route: document.querySelector("#routeScreen"),
   summary: document.querySelector("#summaryScreen"),
+  admin: document.querySelector("#adminScreen"),
 };
 
 const elements = {
@@ -94,6 +95,12 @@ const elements = {
   home: document.querySelector("#homeInput"),
   cancelEdit: document.querySelector("#cancelEditButton"),
   addAddress: document.querySelector("#addAddressButton"),
+  appShell: document.querySelector(".app-shell"),
+  sidebar: document.querySelector(".sidebar"),
+  sidebarToggle: document.querySelector("#sidebarToggle"),
+  addressLayout: document.querySelector(".address-layout"),
+  addressLayoutResizer: document.querySelector("#addressLayoutResizer"),
+  addressSearch: document.querySelector("#addressSearchInput"),
   addressList: document.querySelector("#addressList"),
   routeList: document.querySelector("#routeList"),
   mapPanel: document.querySelector(".map-panel"),
@@ -116,7 +123,7 @@ const elements = {
   emptyTemplate: document.querySelector("#emptyStateTemplate"),
   mapboxToken: document.querySelector("#mapboxTokenInput"),
   saveToken: document.querySelector("#saveTokenButton"),
-  geocode: document.querySelector("#geocodeButton"),
+  adminStatus: document.querySelector("#adminStatus"),
   bulkInput: document.querySelector("#bulkInput"),
   bulkImport: document.querySelector("#bulkImportButton"),
   bulkSample: document.querySelector("#bulkSampleButton"),
@@ -439,16 +446,27 @@ function resetForm() {
 function renderAddresses() {
   elements.addressList.innerHTML = "";
   const home = getHome();
+  const query = elements.addressSearch.value.trim().toLowerCase();
   elements.homeBaseLabel.textContent = home ? `Home: ${home.label}` : "No home base";
-  elements.mapboxToken.value = state.mapboxToken === siteMapboxToken ? "" : state.mapboxToken || "";
-  elements.mapboxToken.placeholder = siteMapboxToken ? "Using site token" : "pk...";
 
   if (!state.locations.length) {
     elements.addressList.append(elements.emptyTemplate.content.cloneNode(true));
     return;
   }
 
-  state.locations.forEach((location) => {
+  const visibleLocations = query
+    ? state.locations.filter((location) => addressSearchText(location).includes(query))
+    : state.locations;
+
+  if (!visibleLocations.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.innerHTML = `<strong>No matches</strong><span>Try a different name, street, city, or coordinate.</span>`;
+    elements.addressList.append(empty);
+    return;
+  }
+
+  visibleLocations.forEach((location) => {
     const card = document.createElement("article");
     card.className = "address-card";
     card.innerHTML = `
@@ -466,6 +484,25 @@ function renderAddresses() {
     `;
     elements.addressList.append(card);
   });
+}
+
+function renderAdmin() {
+  elements.mapboxToken.value = state.mapboxToken === siteMapboxToken ? "" : state.mapboxToken || "";
+  elements.mapboxToken.placeholder = siteMapboxToken ? "Using site token" : "pk...";
+  elements.adminStatus.textContent = state.mapboxToken ? "Mapbox token active" : "No token saved";
+}
+
+function addressSearchText(location) {
+  return [
+    location.label,
+    location.address,
+    location.city,
+    location.state,
+    fullAddress(location),
+    formatCoordinates(location),
+  ]
+    .join(" ")
+    .toLowerCase();
 }
 
 function renderRouteList() {
@@ -568,6 +605,8 @@ function routeItem(
       isHome
         ? '<span class="route-row-actions"></span>'
         : `<span class="route-row-actions">
+            <button class="mini-button mobile-reorder" type="button" data-action="move-up" data-id="${location.id}" title="Move up">Up</button>
+            <button class="mini-button mobile-reorder" type="button" data-action="move-down" data-id="${location.id}" title="Move down">Down</button>
             <button class="mini-button" type="button" data-action="move-top" data-id="${location.id}" title="Move under home base">Top</button>
             <button class="mini-button" type="button" data-action="move-bottom" data-id="${location.id}" title="Move to bottom">Bottom</button>
           </span>`
@@ -900,6 +939,7 @@ function render() {
   renderRouteList();
   renderMap();
   renderSummary();
+  renderAdmin();
   renderMetrics();
   saveState();
 }
@@ -1038,6 +1078,12 @@ function handleRouteAction(event) {
   if (button.dataset.action === "move-bottom") {
     moveStop(button.dataset.id, "bottom");
   }
+  if (button.dataset.action === "move-up") {
+    moveStopByOffset(button.dataset.id, -1);
+  }
+  if (button.dataset.action === "move-down") {
+    moveStopByOffset(button.dataset.id, 1);
+  }
 }
 
 function moveStop(id, position) {
@@ -1049,6 +1095,18 @@ function moveStop(id, position) {
   } else {
     state.routeOrder = [...order, id];
   }
+  render();
+}
+
+function moveStopByOffset(id, offset) {
+  const order = getOrderedStops().map((stop) => stop.id);
+  const currentIndex = order.indexOf(id);
+  if (currentIndex < 0) return;
+  const nextIndex = Math.min(Math.max(currentIndex + offset, 0), order.length - 1);
+  if (nextIndex === currentIndex) return;
+  order.splice(currentIndex, 1);
+  order.splice(nextIndex, 0, id);
+  state.routeOrder = order;
   render();
 }
 
@@ -1069,7 +1127,7 @@ function saveMapboxToken() {
     mapboxReady = false;
     mapboxMarkers = [];
   }
-  elements.bulkStatus.textContent = state.mapboxToken ? "Mapbox token active" : "Mapbox token cleared";
+  elements.adminStatus.textContent = state.mapboxToken ? "Mapbox token active" : "Mapbox token cleared";
   render();
 }
 
@@ -1222,7 +1280,7 @@ async function geocodeMissingLocations() {
       updated += 1;
     }
   }
-  elements.bulkStatus.textContent = `Geocoded ${updated} of ${missing.length}`;
+  elements.adminStatus.textContent = `Geocoded ${updated} of ${missing.length}`;
   render();
 }
 
@@ -1321,22 +1379,66 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function toggleSidebar() {
+  const collapsed = !elements.sidebar.classList.contains("collapsed");
+  elements.sidebar.classList.toggle("collapsed", collapsed);
+  elements.sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+  elements.sidebarToggle.textContent = collapsed ? "Open Menu" : "Collapse Menu";
+}
+
+function startAddressResize(event) {
+  if (window.matchMedia("(max-width: 980px)").matches) return;
+  event.preventDefault();
+  const startX = event.clientX;
+  const startWidth = elements.form.getBoundingClientRect().width;
+  elements.addressLayout.classList.add("resizing");
+
+  function handleMove(moveEvent) {
+    const layoutWidth = elements.addressLayout.getBoundingClientRect().width;
+    const nextWidth = Math.min(Math.max(startWidth + moveEvent.clientX - startX, 280), layoutWidth - 430);
+    elements.addressLayout.style.setProperty("--address-form-width", `${nextWidth}px`);
+  }
+
+  function handleUp() {
+    elements.addressLayout.classList.remove("resizing");
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleUp);
+  }
+
+  window.addEventListener("pointermove", handleMove);
+  window.addEventListener("pointerup", handleUp);
+}
+
+function adjustAddressResizeWithKeyboard(event) {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  if (window.matchMedia("(max-width: 980px)").matches) return;
+  event.preventDefault();
+  const currentWidth = elements.form.getBoundingClientRect().width;
+  const delta = event.key === "ArrowLeft" ? -24 : 24;
+  const layoutWidth = elements.addressLayout.getBoundingClientRect().width;
+  const nextWidth = Math.min(Math.max(currentWidth + delta, 280), layoutWidth - 430);
+  elements.addressLayout.style.setProperty("--address-form-width", `${nextWidth}px`);
+}
+
 elements.navTabs.forEach((tab) => {
   tab.addEventListener("click", () => setScreen(tab.dataset.screen));
 });
 
+elements.sidebarToggle.addEventListener("click", toggleSidebar);
+elements.addressLayoutResizer.addEventListener("pointerdown", startAddressResize);
+elements.addressLayoutResizer.addEventListener("keydown", adjustAddressResizeWithKeyboard);
 elements.form.addEventListener("submit", handleSubmit);
 elements.cancelEdit.addEventListener("click", resetForm);
 elements.addAddress.addEventListener("click", () => {
   resetForm();
   elements.label.focus();
 });
+elements.addressSearch.addEventListener("input", renderAddresses);
 elements.addressList.addEventListener("click", handleAddressAction);
 elements.routeList.addEventListener("click", handleRouteAction);
 elements.routeList.addEventListener("change", handleRouteAction);
 elements.startTime.addEventListener("change", updateStartTime);
 elements.saveToken.addEventListener("click", saveMapboxToken);
-elements.geocode.addEventListener("click", geocodeMissingLocations);
 elements.bulkImport.addEventListener("click", handleBulkImport);
 elements.bulkSample.addEventListener("click", useBulkSample);
 elements.optimize.addEventListener("click", () => {

@@ -50,6 +50,17 @@ button {
   background: var(--nav);
 }
 
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sidebar-content {
+  display: contents;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -86,6 +97,17 @@ button {
   color: #bcc7d8;
   font-size: 0.86rem;
   line-height: 1.35;
+}
+
+.sidebar-toggle {
+  display: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.09);
+  font-weight: 800;
 }
 
 .nav-tabs {
@@ -230,8 +252,9 @@ button {
 
 .address-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 390px) 1fr;
-  gap: 22px;
+  grid-template-columns: minmax(280px, var(--address-form-width, 390px)) 10px minmax(360px, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 
 .panel,
@@ -306,17 +329,55 @@ button {
 }
 
 .list-panel {
-  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  height: min(760px, calc(100vh - 132px));
+  min-height: 420px;
   padding: 20px;
 }
 
-.bulk-panel {
+.layout-resizer {
+  width: 10px;
+  min-height: 560px;
+  border-radius: 8px;
+  background: #d8e1ee;
+  cursor: col-resize;
+}
+
+.layout-resizer:hover,
+.layout-resizer:focus {
+  background: #b8c7da;
+  outline: none;
+}
+
+.address-search {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+  color: #344054;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.address-search input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #ccd5e2;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.bulk-panel,
+.admin-panel {
   display: grid;
   gap: 14px;
   padding: 20px;
 }
 
-.bulk-panel label {
+.bulk-panel label,
+.admin-panel label {
   display: grid;
   gap: 7px;
   color: #344054;
@@ -342,6 +403,9 @@ button {
 .address-list {
   display: grid;
   gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .address-card {
@@ -579,6 +643,10 @@ button {
   background: #dfe7f2;
 }
 
+.mobile-reorder {
+  display: none;
+}
+
 .route-home {
   border-color: #f1c783;
   background: #fff8ec;
@@ -742,14 +810,40 @@ button {
     top: 0;
     z-index: 5;
     padding: 18px;
+    gap: 16px;
+  }
+
+  .sidebar-toggle {
+    display: block;
+  }
+
+  .sidebar-content {
+    display: grid;
+    gap: 16px;
+  }
+
+  .sidebar.collapsed .sidebar-content {
+    display: none;
   }
 
   .nav-tabs,
   .sidebar-metrics,
-  .address-layout,
   .route-layout,
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .address-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .layout-resizer {
+    display: none;
+  }
+
+  .list-panel {
+    height: min(640px, 72vh);
   }
 
   .route-screen {
@@ -758,6 +852,14 @@ button {
 
   .route-layout {
     height: auto;
+  }
+
+  .route-list-panel {
+    order: 2;
+  }
+
+  .map-panel {
+    order: 1;
   }
 
   .map-panel {
@@ -782,16 +884,80 @@ button {
   }
 
   .route-item {
-    grid-template-columns: 36px 24px 1fr;
+    grid-template-columns: 34px 22px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
+    align-items: start;
+  }
+
+  .route-index {
+    width: 34px;
+    height: 34px;
+  }
+
+  .route-include,
+  .include-spacer {
+    width: 22px;
+    height: 34px;
+  }
+
+  .route-copy strong {
+    font-size: 0.96rem;
+    line-height: 1.2;
+  }
+
+  .route-copy span {
+    font-size: 0.78rem;
+    line-height: 1.25;
   }
 
   .leg-metric {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+    min-width: 68px;
+    text-align: right;
+  }
+
+  .leg-metric strong {
+    font-size: 0.82rem;
+  }
+
+  .leg-metric span,
+  .leg-metric em {
+    font-size: 0.72rem;
+  }
+
+  .route-home {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+  }
+
+  .route-home .include-spacer,
+  .route-home .route-row-actions {
+    display: none;
+  }
+
+  .route-home .route-copy {
+    grid-column: 2;
+  }
+
+  .route-home .leg-metric {
     grid-column: 3;
-    text-align: left;
+    grid-row: 1;
   }
 
   .route-row-actions {
-    grid-column: 3;
+    grid-column: 3 / span 2;
     justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .route-row-actions .mini-button {
+    min-height: 28px;
+    padding: 0 9px;
+  }
+
+  .mobile-reorder {
+    display: inline-flex;
+    align-items: center;
   }
 }
