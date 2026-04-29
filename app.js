@@ -441,6 +441,17 @@ function resetForm() {
   elements.cancelEdit.classList.add("hidden");
   elements.lat.value = "";
   elements.lng.value = "";
+  closeAddressForm();
+}
+
+function openAddressForm() {
+  elements.form.classList.remove("hidden");
+  elements.addressLayout.classList.add("form-open");
+}
+
+function closeAddressForm() {
+  elements.form.classList.add("hidden");
+  elements.addressLayout.classList.remove("form-open");
 }
 
 function renderAddresses() {
@@ -1009,6 +1020,7 @@ function editLocation(id) {
   elements.home.checked = location.isHome;
   elements.formTitle.textContent = "Edit address";
   elements.cancelEdit.classList.remove("hidden");
+  openAddressForm();
   elements.label.focus();
 }
 
@@ -1381,9 +1393,17 @@ function escapeHtml(value) {
 
 function toggleSidebar() {
   const collapsed = !elements.sidebar.classList.contains("collapsed");
+  setSidebarCollapsed(collapsed);
+}
+
+function setSidebarCollapsed(collapsed) {
   elements.sidebar.classList.toggle("collapsed", collapsed);
   elements.sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
   elements.sidebarToggle.textContent = collapsed ? "Open Menu" : "Collapse Menu";
+}
+
+function applyDefaultMobileSidebarState() {
+  setSidebarCollapsed(window.matchMedia("(max-width: 980px)").matches);
 }
 
 function startAddressResize(event) {
@@ -1431,6 +1451,7 @@ elements.form.addEventListener("submit", handleSubmit);
 elements.cancelEdit.addEventListener("click", resetForm);
 elements.addAddress.addEventListener("click", () => {
   resetForm();
+  openAddressForm();
   elements.label.focus();
 });
 elements.addressSearch.addEventListener("input", renderAddresses);
@@ -1452,6 +1473,7 @@ elements.reverse.addEventListener("click", () => {
 
 async function initializeApp() {
   resetForm();
+  applyDefaultMobileSidebarState();
   await loadSiteConfig();
   render();
 }

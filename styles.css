@@ -257,6 +257,14 @@ button {
   align-items: start;
 }
 
+.address-layout:not(.form-open) {
+  grid-template-columns: 1fr;
+}
+
+.address-layout:not(.form-open) .layout-resizer {
+  display: none;
+}
+
 .panel,
 .form-panel,
 .route-list-panel,
@@ -643,10 +651,6 @@ button {
   background: #dfe7f2;
 }
 
-.mobile-reorder {
-  display: none;
-}
-
 .route-home {
   border-color: #f1c783;
   background: #fff8ec;
@@ -801,6 +805,10 @@ button {
 }
 
 @media (max-width: 980px) {
+  :root {
+    --mobile-route-gutter: 18px;
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -865,11 +873,24 @@ button {
   .map-panel {
     aspect-ratio: 1 / 0.78;
   }
+
+  .route-row-actions {
+    min-width: 0;
+  }
+
+  .route-row-actions .mini-button {
+    min-height: 28px;
+    padding: 0 9px;
+  }
 }
 
 @media (max-width: 620px) {
+  :root {
+    --mobile-route-gutter: 20px;
+  }
+
   .main {
-    padding: 18px;
+    padding: 18px 10px;
   }
 
   .screen-header,
@@ -877,6 +898,14 @@ button {
   .toolbar-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .route-screen .route-toolbar {
+    padding-inline: var(--mobile-route-gutter);
+  }
+
+  .route-screen .route-layout {
+    padding-inline: var(--mobile-route-gutter);
   }
 
   .field-grid {
