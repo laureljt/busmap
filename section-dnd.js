@@ -4,16 +4,16 @@
   let pendingTouchDrag = null;
   let activeTouchTarget = null;
   const TOUCH_DRAG_DELAY = 220;
-  const TOUCH_SCROLL_THRESHOLD = 10;
+  const TOUCH_SCROLL_THRESHOLD = 14;
 
   function clearBindings() {
     cleanups.forEach((cleanup) => cleanup());
     cleanups = [];
   }
 
-  function listen(node, eventName, handler) {
-    node.addEventListener(eventName, handler);
-    cleanups.push(() => node.removeEventListener(eventName, handler));
+  function listen(node, eventName, handler, options) {
+    node.addEventListener(eventName, handler, options);
+    cleanups.push(() => node.removeEventListener(eventName, handler, options));
   }
 
   function canStartDrag(options) {
@@ -52,8 +52,16 @@
 
   function startTouchHouseDrag() {
     if (!pendingTouchDrag) return;
-    const { house, houseId, sectionId, pointerId } = pendingTouchDrag;
-    dragState = { type: "house", id: houseId, sectionId, pointerId, viaPointer: true };
+    const { house, houseId, sectionId, pointerId, touchId } = pendingTouchDrag;
+    dragState = {
+      type: "house",
+      id: houseId,
+      sectionId,
+      pointerId,
+      touchId,
+      viaPointer: Boolean(pointerId),
+      viaTouch: Boolean(touchId),
+    };
     house.classList.add("dragging");
     document.body.classList.add("section-dnd-touching");
     pendingTouchDrag = null;
@@ -66,14 +74,27 @@
     if (activeTouchTarget) activeTouchTarget.classList.add("drag-over");
   }
 
-  function getTouchDropTarget(event) {
-    const target = document.elementFromPoint(event.clientX, event.clientY);
+  function getDropTargetAt(clientX, clientY) {
+    const target = document.elementFromPoint(clientX, clientY);
     if (!target) return null;
 
     const houseTarget = target.closest("[data-house-card]");
     if (houseTarget && houseTarget.dataset.houseCard !== dragState?.id) return houseTarget;
 
     return target.closest("[data-house-drop-section]");
+  }
+
+  function getTouchById(touches, touchId) {
+    return Array.from(touches).find((touch) => touch.identifier === touchId);
+  }
+
+  function finishHouseDrop(options, target) {
+    if (target?.dataset.houseCard) {
+      options.onHouseDrop?.(dragState.id, target.dataset.sectionId || "", target.dataset.houseCard);
+    } else if (target?.dataset.houseDropSection) {
+      options.onHouseDrop?.(dragState.id, target.dataset.houseDropSection, null);
+    }
+    endDrag();
   }
 
   function bindSectionDragDrop(options = {}) {
@@ -119,8 +140,30 @@
     });
 
     document.querySelectorAll("[data-house-card]").forEach((house) => {
+      listen(
+        house,
+        "touchstart",
+        (event) => {
+          if (event.touches.length !== 1 || isInteractiveTarget(event.target)) return;
+          if (!canStartDrag(options)) return;
+
+          const touch = event.touches[0];
+          cancelPendingTouchDrag();
+          pendingTouchDrag = {
+            house,
+            houseId: house.dataset.houseCard,
+            sectionId: house.dataset.sectionId || "",
+            touchId: touch.identifier,
+            startX: touch.clientX,
+            startY: touch.clientY,
+            timer: window.setTimeout(startTouchHouseDrag, TOUCH_DRAG_DELAY),
+          };
+        },
+        { passive: true },
+      );
+
       listen(house, "pointerdown", (event) => {
-        if (event.pointerType === "mouse" || event.button !== 0 || isInteractiveTarget(event.target)) return;
+        if (event.pointerType === "mouse" || event.pointerType === "touch" || event.button !== 0 || isInteractiveTarget(event.target)) return;
         if (!canStartDrag(options)) return;
 
         cancelPendingTouchDrag();
@@ -149,7 +192,7 @@
 
         if (!dragState?.viaPointer || dragState.pointerId !== event.pointerId) return;
         event.preventDefault();
-        setActiveTouchTarget(getTouchDropTarget(event));
+        setActiveTouchTarget(getDropTargetAt(event.clientX, event.clientY));
       });
 
       listen(house, "pointerup", (event) => {
@@ -161,12 +204,7 @@
         if (!dragState?.viaPointer || dragState.pointerId !== event.pointerId) return;
         event.preventDefault();
 
-        if (activeTouchTarget?.dataset.houseCard) {
-          options.onHouseDrop?.(dragState.id, activeTouchTarget.dataset.sectionId || "", activeTouchTarget.dataset.houseCard);
-        } else if (activeTouchTarget?.dataset.houseDropSection) {
-          options.onHouseDrop?.(dragState.id, activeTouchTarget.dataset.houseDropSection, null);
-        }
-        endDrag();
+        finishHouseDrop(options, activeTouchTarget);
       });
 
       listen(house, "pointercancel", (event) => {
@@ -217,6 +255,51 @@
       });
 
       listen(house, "dragend", endDrag);
+    });
+
+    listen(
+      document,
+      "touchmove",
+      (event) => {
+        if (pendingTouchDrag?.touchId !== undefined) {
+          const touch = getTouchById(event.touches, pendingTouchDrag.touchId);
+          if (!touch) return;
+          const distance = Math.hypot(touch.clientX - pendingTouchDrag.startX, touch.clientY - pendingTouchDrag.startY);
+          if (distance > TOUCH_SCROLL_THRESHOLD) cancelPendingTouchDrag();
+          return;
+        }
+
+        if (!dragState?.viaTouch) return;
+        const touch = getTouchById(event.touches, dragState.touchId);
+        if (!touch) return;
+        event.preventDefault();
+        setActiveTouchTarget(getDropTargetAt(touch.clientX, touch.clientY));
+      },
+      { passive: false },
+    );
+
+    listen(
+      document,
+      "touchend",
+      (event) => {
+        if (pendingTouchDrag?.touchId !== undefined) {
+          const touch = getTouchById(event.changedTouches, pendingTouchDrag.touchId);
+          if (touch) cancelPendingTouchDrag();
+          return;
+        }
+
+        if (!dragState?.viaTouch) return;
+        const touch = getTouchById(event.changedTouches, dragState.touchId);
+        event.preventDefault();
+        const target = touch ? getDropTargetAt(touch.clientX, touch.clientY) || activeTouchTarget : activeTouchTarget;
+        finishHouseDrop(options, target);
+      },
+      { passive: false },
+    );
+
+    listen(document, "touchcancel", () => {
+      cancelPendingTouchDrag();
+      if (dragState?.viaTouch) endDrag();
     });
 
     document.querySelectorAll("[data-house-drop-section]").forEach((dropZone) => {
