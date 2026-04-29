@@ -72,6 +72,7 @@ let drivingRoute = {
   data: null,
   error: "",
 };
+let siteMapboxToken = "";
 
 const screens = {
   addresses: document.querySelector("#addressesScreen"),
@@ -161,6 +162,22 @@ function normalizeLocation(location) {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+async function loadSiteConfig() {
+  try {
+    const response = await fetch("/api/config", { cache: "no-store" });
+    if (!response.ok) return;
+    const config = await response.json();
+    if (typeof config.mapboxToken === "string" && config.mapboxToken.trim()) {
+      siteMapboxToken = config.mapboxToken.trim();
+      if (!state.mapboxToken) {
+        state.mapboxToken = siteMapboxToken;
+      }
+    }
+  } catch {
+    siteMapboxToken = "";
+  }
 }
 
 function getHome() {
@@ -423,7 +440,8 @@ function renderAddresses() {
   elements.addressList.innerHTML = "";
   const home = getHome();
   elements.homeBaseLabel.textContent = home ? `Home: ${home.label}` : "No home base";
-  elements.mapboxToken.value = state.mapboxToken || "";
+  elements.mapboxToken.value = state.mapboxToken === siteMapboxToken ? "" : state.mapboxToken || "";
+  elements.mapboxToken.placeholder = siteMapboxToken ? "Using site token" : "pk...";
 
   if (!state.locations.length) {
     elements.addressList.append(elements.emptyTemplate.content.cloneNode(true));
@@ -1041,6 +1059,9 @@ function updateStartTime() {
 
 function saveMapboxToken() {
   state.mapboxToken = elements.mapboxToken.value.trim();
+  if (!state.mapboxToken && siteMapboxToken) {
+    state.mapboxToken = siteMapboxToken;
+  }
   drivingRoute = { key: "", status: "idle", data: null, error: "" };
   if (mapboxMap) {
     mapboxMap.remove();
@@ -1048,7 +1069,7 @@ function saveMapboxToken() {
     mapboxReady = false;
     mapboxMarkers = [];
   }
-  elements.bulkStatus.textContent = state.mapboxToken ? "Mapbox token saved" : "Mapbox token cleared";
+  elements.bulkStatus.textContent = state.mapboxToken ? "Mapbox token active" : "Mapbox token cleared";
   render();
 }
 
@@ -1327,5 +1348,10 @@ elements.reverse.addEventListener("click", () => {
   render();
 });
 
-resetForm();
-render();
+async function initializeApp() {
+  resetForm();
+  await loadSiteConfig();
+  render();
+}
+
+initializeApp();
