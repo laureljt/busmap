@@ -64,7 +64,10 @@
               <p class="eyebrow">Manage locations</p>
               <h2 id="addressesTitle">Addresses and Home Base</h2>
             </div>
-            <button class="primary-action" type="button" id="addAddressButton">+ Add address</button>
+            <div class="header-actions">
+              <button class="secondary-action" type="button" id="bulkAddButton">Bulk Add</button>
+              <button class="primary-action" type="button" id="addAddressButton">+ Add address</button>
+            </div>
           </div>
 
           <div class="address-layout">
@@ -130,7 +133,7 @@
                 <div class="address-list" id="addressList"></div>
               </div>
 
-              <section class="panel bulk-panel" aria-labelledby="bulkTitle">
+              <section class="panel bulk-panel hidden" id="bulkPanel" aria-labelledby="bulkTitle">
                 <div class="panel-heading">
                   <h3 id="bulkTitle">Bulk Add</h3>
                   <span id="bulkStatus">Paste one address per line</span>
@@ -146,6 +149,7 @@
                 <div class="bulk-actions">
                   <button class="submit-button" type="button" id="bulkImportButton">Import addresses</button>
                   <button class="ghost-button" type="button" id="bulkSampleButton">Use sample format</button>
+                  <button class="ghost-button" type="button" id="cancelBulkButton">Cancel</button>
                 </div>
               </section>
             </section>

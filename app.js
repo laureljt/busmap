@@ -4,58 +4,7 @@ const AVERAGE_SPEED_MPH = 28;
 const MAPBOX_STYLE = "mapbox://styles/mapbox/streets-v12";
 
 const sampleState = {
-  locations: [
-    {
-      id: createId(),
-      label: "Home Base",
-      address: "100 S High Street",
-      city: "Columbus",
-      state: "OH",
-      lat: 39.961176,
-      lng: -82.998794,
-      isHome: true,
-    },
-    {
-      id: createId(),
-      label: "Maple House",
-      address: "82 Maple Street",
-      city: "Columbus",
-      state: "OH",
-      lat: 39.9867,
-      lng: -83.0312,
-      isHome: false,
-    },
-    {
-      id: createId(),
-      label: "North Ridge",
-      address: "709 Ridge Road",
-      city: "Columbus",
-      state: "OH",
-      lat: 40.0411,
-      lng: -82.9824,
-      isHome: false,
-    },
-    {
-      id: createId(),
-      label: "Lakeside",
-      address: "16 Lakeview Drive",
-      city: "Columbus",
-      state: "OH",
-      lat: 39.9738,
-      lng: -82.9186,
-      isHome: false,
-    },
-    {
-      id: createId(),
-      label: "Oak Terrace",
-      address: "230 Oak Terrace",
-      city: "Columbus",
-      state: "OH",
-      lat: 39.9111,
-      lng: -83.0254,
-      isHome: false,
-    },
-  ],
+  locations: [],
   routeOrder: [],
   mapboxToken: "",
   startTime: "",
@@ -65,6 +14,7 @@ let state = loadState();
 let mapboxMap = null;
 let mapboxReady = false;
 let mapboxMarkers = [];
+let mapboxMarkerById = new Map();
 let drivingRoute = {
   key: "",
   status: "idle",
@@ -104,6 +54,8 @@ const elements = {
   routeLayoutResizer: document.querySelector("#routeLayoutResizer"),
   addressSearch: document.querySelector("#addressSearchInput"),
   addressList: document.querySelector("#addressList"),
+  bulkAdd: document.querySelector("#bulkAddButton"),
+  bulkPanel: document.querySelector("#bulkPanel"),
   routeList: document.querySelector("#routeList"),
   mapPanel: document.querySelector(".map-panel"),
   mapboxMap: document.querySelector("#mapboxMap"),
@@ -129,15 +81,14 @@ const elements = {
   bulkInput: document.querySelector("#bulkInput"),
   bulkImport: document.querySelector("#bulkImportButton"),
   bulkSample: document.querySelector("#bulkSampleButton"),
+  cancelBulk: document.querySelector("#cancelBulkButton"),
   bulkStatus: document.querySelector("#bulkStatus"),
 };
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
   if (!saved) {
-    const seeded = { ...sampleState };
-    seeded.routeOrder = optimizeRoute(seeded.locations).map((location) => location.id);
-    return seeded;
+    return { ...sampleState };
   }
 
   try {
@@ -456,6 +407,17 @@ function closeAddressForm() {
   elements.addressLayout.classList.remove("form-open");
 }
 
+function openBulkPanel() {
+  elements.bulkPanel.classList.remove("hidden");
+  elements.bulkAdd.setAttribute("aria-expanded", "true");
+  elements.bulkInput.focus();
+}
+
+function closeBulkPanel() {
+  elements.bulkPanel.classList.add("hidden");
+  elements.bulkAdd.setAttribute("aria-expanded", "false");
+}
+
 function renderAddresses() {
   elements.addressList.innerHTML = "";
   const home = getHome();
@@ -652,6 +614,7 @@ function renderMap() {
     mapboxMap = null;
     mapboxReady = false;
     mapboxMarkers = [];
+    mapboxMarkerById = new Map();
   }
   elements.mapPanel.classList.remove("mapbox-active");
   elements.mapMessage.textContent = state.mapboxToken
@@ -814,6 +777,7 @@ function updateMapboxRoute(route) {
       .setPopup(new window.mapboxgl.Popup({ offset: 22 }).setText(`${location.label}: ${fullAddress(location)}`))
       .addTo(mapboxMap);
     mapboxMarkers.push(marker);
+    mapboxMarkerById.set(location.id, marker);
   });
 
   const bounds = lineCoordinates.reduce(
@@ -834,6 +798,7 @@ function updateMapboxRoute(route) {
 function clearMapboxMarkers() {
   mapboxMarkers.forEach((marker) => marker.remove());
   mapboxMarkers = [];
+  mapboxMarkerById = new Map();
 }
 
 function renderFallbackMap(route) {
@@ -1092,24 +1057,62 @@ function handleRouteAction(event) {
   }
 
   const button = event.target.closest("button[data-action]");
-  if (!button) return;
-  if (button.dataset.action === "move-top") {
-    moveStop(button.dataset.id, "top");
+  if (button) {
+    if (button.dataset.action === "move-top") {
+      moveStop(button.dataset.id, "top");
+    }
+    if (button.dataset.action === "move-bottom") {
+      moveStop(button.dataset.id, "bottom");
+    }
+    if (button.dataset.action === "move-up") {
+      moveStopByOffset(button.dataset.id, -1);
+    }
+    if (button.dataset.action === "move-down") {
+      moveStopByOffset(button.dataset.id, 1);
+    }
+    if (button.dataset.action === "edit-route") {
+      editLocation(button.dataset.id);
+      setScreen("addresses");
+      requestAnimationFrame(() => elements.form.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+    return;
   }
-  if (button.dataset.action === "move-bottom") {
-    moveStop(button.dataset.id, "bottom");
+
+  const routeRow = event.target.closest(".route-item[data-id]");
+  if (routeRow) {
+    focusRouteLocation(routeRow.dataset.id);
   }
-  if (button.dataset.action === "move-up") {
-    moveStopByOffset(button.dataset.id, -1);
+}
+
+function focusRouteLocation(id) {
+  const location = state.locations.find((item) => item.id === id);
+  if (!location || !hasCoordinates(location)) return;
+
+  if (mapboxMap && mapboxReady) {
+    mapboxMap.flyTo({
+      center: [location.lng, location.lat],
+      zoom: Math.max(mapboxMap.getZoom(), 15),
+      duration: 550,
+    });
+    const marker = mapboxMarkerById.get(id);
+    if (marker?.getPopup()) marker.getPopup().addTo(mapboxMap);
+    return;
   }
-  if (button.dataset.action === "move-down") {
-    moveStopByOffset(button.dataset.id, 1);
-  }
-  if (button.dataset.action === "edit-route") {
-    editLocation(button.dataset.id);
-    setScreen("addresses");
-    requestAnimationFrame(() => elements.form.scrollIntoView({ behavior: "smooth", block: "start" }));
-  }
+
+  focusFallbackMapLocation(location);
+}
+
+function focusFallbackMapLocation(location) {
+  const route = getRoute().filter(hasCoordinates);
+  const routeIndex = route.findIndex((routeLocation) => routeLocation.id === location.id);
+  if (routeIndex < 0) return;
+
+  const point = projectRouteToCanvas(route)[routeIndex];
+  const size = 36;
+  const halfSize = size / 2;
+  const x = Math.min(Math.max(point.x - halfSize, 0), 100 - size);
+  const y = Math.min(Math.max(point.y - halfSize, 0), 100 - size);
+  elements.routeMap.setAttribute("viewBox", `${x} ${y} ${size} ${size}`);
 }
 
 function moveStop(id, position) {
@@ -1206,6 +1209,7 @@ async function handleBulkImport() {
   state.routeOrder = buildOptimizedOrder();
   elements.bulkInput.value = "";
   elements.bulkStatus.textContent = `Imported ${imported.length} address${imported.length === 1 ? "" : "es"}`;
+  closeBulkPanel();
   render();
 }
 
@@ -1495,7 +1499,12 @@ function adjustRouteResizeWithKeyboard(event) {
 }
 
 elements.navTabs.forEach((tab) => {
-  tab.addEventListener("click", () => setScreen(tab.dataset.screen));
+  tab.addEventListener("click", () => {
+    setScreen(tab.dataset.screen);
+    if (window.matchMedia("(max-width: 980px)").matches) {
+      setSidebarCollapsed(true);
+    }
+  });
 });
 
 elements.sidebarToggle.addEventListener("click", toggleSidebar);
@@ -1510,6 +1519,13 @@ elements.addAddress.addEventListener("click", () => {
   openAddressForm();
   elements.label.focus();
 });
+elements.bulkAdd.addEventListener("click", () => {
+  if (elements.bulkPanel.classList.contains("hidden")) {
+    openBulkPanel();
+  } else {
+    closeBulkPanel();
+  }
+});
 elements.addressSearch.addEventListener("input", renderAddresses);
 elements.addressList.addEventListener("click", handleAddressAction);
 elements.routeList.addEventListener("click", handleRouteAction);
@@ -1518,6 +1534,7 @@ elements.startTime.addEventListener("change", updateStartTime);
 elements.saveToken.addEventListener("click", saveMapboxToken);
 elements.bulkImport.addEventListener("click", handleBulkImport);
 elements.bulkSample.addEventListener("click", useBulkSample);
+elements.cancelBulk.addEventListener("click", closeBulkPanel);
 elements.optimize.addEventListener("click", () => {
   state.routeOrder = buildOptimizedOrder();
   render();
@@ -1529,6 +1546,7 @@ elements.reverse.addEventListener("click", () => {
 
 async function initializeApp() {
   resetForm();
+  closeBulkPanel();
   applyDefaultMobileSidebarState();
   await loadSiteConfig();
   render();

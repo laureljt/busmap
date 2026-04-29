@@ -200,6 +200,13 @@ button {
   margin-bottom: 22px;
 }
 
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--accent-strong);
@@ -386,6 +393,10 @@ button {
   display: grid;
   gap: 14px;
   padding: 20px;
+}
+
+.bulk-panel.hidden {
+  display: none;
 }
 
 .bulk-panel label,
@@ -960,6 +971,7 @@ button {
 
   .screen-header,
   .route-toolbar,
+  .header-actions,
   .toolbar-actions {
     align-items: stretch;
     flex-direction: column;
