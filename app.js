@@ -62,7 +62,6 @@ const sampleState = {
 };
 
 let state = loadState();
-let draggedId = null;
 let mapboxMap = null;
 let mapboxReady = false;
 let mapboxMarkers = [];
@@ -518,6 +517,8 @@ function addressSearchText(location) {
 
 function renderRouteList() {
   elements.routeList.innerHTML = "";
+  elements.routeList.dataset.houseDropSection = "route";
+  window.SectionDragDrop?.clearBindings?.();
   const home = getHome();
   const stops = getOrderedStops();
   const includedStops = getIncludedStops();
@@ -566,6 +567,7 @@ function renderRouteList() {
       ),
     );
   }
+  bindRouteDragDrop();
 }
 
 function emptyRoute(message) {
@@ -589,6 +591,10 @@ function routeItem(
   item.className = `route-item ${isHome ? "route-home" : ""} ${!isIncluded ? "route-excluded" : ""}`;
   item.draggable = !isHome;
   item.dataset.id = location.id;
+  if (!isHome) {
+    item.dataset.houseCard = location.id;
+    item.dataset.sectionId = "route";
+  }
   const leg = previousLocation ? getLegMetric(previousLocation, location, legIndex) : null;
   const timeLabel = !isIncluded ? "excluded" : arrivalTime || "set start";
   const legTimeLabel = !isIncluded ? "off route" : leg ? formatTime(leg.minutes) : "start";
@@ -616,6 +622,7 @@ function routeItem(
       isHome
         ? '<span class="route-row-actions"></span>'
         : `<span class="route-row-actions">
+            <button class="mini-button" type="button" data-action="edit-route" data-id="${location.id}" title="Edit house">Edit</button>
             <button class="mini-button mobile-reorder" type="button" data-action="move-up" data-id="${location.id}" title="Move up">Up</button>
             <button class="mini-button mobile-reorder" type="button" data-action="move-down" data-id="${location.id}" title="Move down">Down</button>
             <button class="mini-button" type="button" data-action="move-top" data-id="${location.id}" title="Move under home base">Top</button>
@@ -623,13 +630,6 @@ function routeItem(
           </span>`
     }
   `;
-
-  if (!isHome) {
-    item.addEventListener("dragstart", handleDragStart);
-    item.addEventListener("dragover", handleDragOver);
-    item.addEventListener("drop", handleDrop);
-    item.addEventListener("dragend", handleDragEnd);
-  }
 
   return item;
 }
@@ -959,6 +959,7 @@ async function handleSubmit(event) {
   event.preventDefault();
   const id = elements.editingId.value || createId();
   const isHome = elements.home.checked;
+  const existingLocation = state.locations.find((location) => location.id === id);
   const nextLocation = {
     id,
     label: elements.label.value.trim(),
@@ -968,12 +969,13 @@ async function handleSubmit(event) {
     lat: optionalCoordinate(elements.lat.value, -90, 90),
     lng: optionalCoordinate(elements.lng.value, -180, 180),
     isHome,
-    included: isHome ? false : state.locations.find((location) => location.id === id)?.included !== false,
+    included: isHome ? false : existingLocation?.included !== false,
   };
+  const addressChanged = existingLocation && fullAddress(existingLocation) !== fullAddress(nextLocation);
 
-  if (!hasCoordinates(nextLocation)) {
+  if (addressChanged || !hasCoordinates(nextLocation)) {
     if (!state.mapboxToken) {
-      elements.bulkStatus.textContent = "Save a Mapbox token before adding addresses without coordinates";
+      elements.bulkStatus.textContent = "Save a Mapbox token before updating address coordinates";
       return;
     }
 
@@ -1002,6 +1004,7 @@ async function handleSubmit(event) {
   }
 
   resetForm();
+  drivingRoute = { key: "", status: "idle", data: null, error: "" };
   elements.bulkStatus.textContent = "Address saved with calculated coordinates";
   render();
 }
@@ -1041,34 +1044,37 @@ function handleAddressAction(event) {
   if (action === "delete") deleteLocation(id);
 }
 
-function handleDragStart(event) {
-  draggedId = event.currentTarget.dataset.id;
-  event.currentTarget.classList.add("dragging");
-  event.dataTransfer.effectAllowed = "move";
+function bindRouteDragDrop() {
+  if (!window.SectionDragDrop) return;
+
+  window.SectionDragDrop.bindSectionDragDrop({
+    canDrag: () => true,
+    onSectionDrop: () => {},
+    onHouseDrop: (draggedHouseId, targetSectionId, targetHouseId) => {
+      if (targetSectionId !== "route") return;
+      moveStopBefore(draggedHouseId, targetHouseId);
+    },
+  });
 }
 
-function handleDragOver(event) {
-  event.preventDefault();
-  event.dataTransfer.dropEffect = "move";
-}
-
-function handleDrop(event) {
-  event.preventDefault();
-  const targetId = event.currentTarget.dataset.id;
+function moveStopBefore(draggedId, targetId) {
   if (!draggedId || draggedId === targetId) return;
 
   const order = getOrderedStops().map((stop) => stop.id);
   const fromIndex = order.indexOf(draggedId);
-  const toIndex = order.indexOf(targetId);
+  if (fromIndex < 0) return;
+
   order.splice(fromIndex, 1);
-  order.splice(toIndex, 0, draggedId);
+
+  if (!targetId) {
+    order.push(draggedId);
+  } else {
+    const toIndex = order.indexOf(targetId);
+    order.splice(toIndex < 0 ? order.length : toIndex, 0, draggedId);
+  }
+
   state.routeOrder = order;
   render();
-}
-
-function handleDragEnd(event) {
-  event.currentTarget.classList.remove("dragging");
-  draggedId = null;
 }
 
 function handleRouteAction(event) {
@@ -1095,6 +1101,11 @@ function handleRouteAction(event) {
   }
   if (button.dataset.action === "move-down") {
     moveStopByOffset(button.dataset.id, 1);
+  }
+  if (button.dataset.action === "edit-route") {
+    editLocation(button.dataset.id);
+    setScreen("addresses");
+    requestAnimationFrame(() => elements.form.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 }
 
